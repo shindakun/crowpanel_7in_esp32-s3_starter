@@ -52,7 +52,7 @@ cable. Confirm the cable carries data (a phone should mount on it).
 | --- | --- |
 | `crowpanel` | RGB panel, GT911 touch, backlight/brightness (STC8H1K28) |
 | `crowpanel_lvgl` | LVGL 9 bound to the panel + touch via esp_lvgl_port |
-| `net` | NVS init + Wi-Fi station connect helper |
+| `net` | NVS init, Wi-Fi STA connect/disconnect, auto-reconnect, IP/status, SNTP |
 | `sdcard` | FAT-over-SPI microSD mount (`/sdcard`) |
 | `audio` | INMP441 I2S mic capture + I2S speaker/amp output |
 
@@ -104,12 +104,18 @@ if (crowpanel_lvgl_lock(0)) {                   // LVGL runs in its own task
 }
 ```
 
-Wi-Fi:
+Wi-Fi (auto-reconnects on drops after the first connect):
 
 ```c
 #include "net.h"
 
-net_wifi_connect("my-ssid", "my-pass", 15000);  // blocks until IP or timeout
+if (net_wifi_connect("my-ssid", "my-pass", 15000) == ESP_OK) {  // blocks until IP
+    char ip[16];
+    net_wifi_get_ip(ip, sizeof(ip));   // e.g. "10.0.0.110"
+    net_sntp_sync(10000);              // set the clock from NTP
+}
+bool up = net_wifi_is_connected();
+net_wifi_disconnect();                 // stops auto-reconnect
 ```
 
 SD card (requires the S0/S1 switches in the TF Card position, see above):

@@ -162,7 +162,13 @@ static void wifi_task(void *arg)
 
     char status[96];
     if (net_wifi_connect(WIFI_SSID, WIFI_PASS, 20000) == ESP_OK) {
-        snprintf(status, sizeof(status), "Wi-Fi: connected to %s", WIFI_SSID);
+        char ip[16] = "?";
+        net_wifi_get_ip(ip, sizeof(ip));
+        snprintf(status, sizeof(status), "Wi-Fi: %s  (%s)", WIFI_SSID, ip);
+        // Connected, so sync the clock from NTP (best-effort).
+        if (net_sntp_sync(10000) == ESP_OK) {
+            ESP_LOGI(TAG, "clock synced via SNTP");
+        }
     } else {
         snprintf(status, sizeof(status), "Wi-Fi: failed to connect to %s", WIFI_SSID);
     }
