@@ -43,7 +43,7 @@ static void build_ui(void)
     lv_obj_set_style_bg_color(scr, lv_color_hex(0x103040), 0);
 
     lv_obj_t *title = lv_label_create(scr);
-    lv_label_set_text(title, "CrowPanel Advance 7.0");
+    lv_label_set_text(title, "CrowPanel Advance 7\"");
     lv_obj_set_style_text_color(title, lv_color_white(), 0);
     lv_obj_set_style_text_font(title, &lv_font_montserrat_28, 0);
     lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 30);
@@ -76,7 +76,7 @@ static void build_ui(void)
 
 void app_main(void)
 {
-    ESP_LOGI(TAG, "CrowPanel Advance 7.0 self-test (LVGL)");
+    ESP_LOGI(TAG, "CrowPanel Advance 7\" self-test (LVGL)");
 
     ESP_ERROR_CHECK(crowpanel_init());
 

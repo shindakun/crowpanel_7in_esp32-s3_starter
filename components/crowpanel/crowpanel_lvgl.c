@@ -1,4 +1,4 @@
-// LVGL integration for the CrowPanel Advance 7.0, using esp_lvgl_port.
+// LVGL integration for the CrowPanel Advance 7", using esp_lvgl_port.
 // See crowpanel_lvgl.h for the API.
 
 #include "crowpanel_lvgl.h"

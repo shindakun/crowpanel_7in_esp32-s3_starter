@@ -1,4 +1,4 @@
-// Optional LVGL integration for the CrowPanel Advance 7.0.
+// Optional LVGL integration for the CrowPanel Advance 7".
 //
 // Bridges the board's RGB panel and GT911 touch (already brought up by
 // crowpanel_init()) to LVGL via Espressif's esp_lvgl_port. After calling

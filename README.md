@@ -1,4 +1,4 @@
-# CrowPanel Advance 7.0 (ESP32-S3) starter
+# CrowPanel Advance 7" (ESP32-S3) starter
 
 ESP-IDF starter template for the **Elecrow CrowPanel Advance 7.0-HMI** 7-inch
 ESP32-S3 touch display, also sold rebranded (e.g. IoTeikXgo, Amazon B0GVDBN9RT).
