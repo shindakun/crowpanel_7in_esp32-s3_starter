@@ -1,0 +1,19 @@
+# CrowPanel Advance 7.0 (ESP32-S3-WROOM-1 N16R8)
+# 16MB flash, 8MB octal PSRAM. The 800x480x2 RGB framebuffer lives in PSRAM.
+
+# Flash: 16MB
+CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y
+
+# Octal (OPI) PSRAM at 80MHz
+CONFIG_ESP32S3_SPIRAM_SUPPORT=y
+CONFIG_SPIRAM=y
+CONFIG_SPIRAM_MODE_OCT=y
+CONFIG_SPIRAM_SPEED_80M=y
+
+# Allow the RGB panel framebuffer to be allocated from PSRAM and let
+# the LCD driver use PSRAM bandwidth efficiently.
+CONFIG_SPIRAM_FETCH_INSTRUCTIONS=y
+CONFIG_SPIRAM_RODATA=y
+
+# Bump CPU to 240MHz
+CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_240=y
