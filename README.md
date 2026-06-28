@@ -54,14 +54,25 @@ cable. Confirm the cable carries data (a phone should mount on it).
 | `crowpanel_lvgl` | LVGL 9 bound to the panel + touch via esp_lvgl_port |
 | `net` | NVS init + Wi-Fi station connect helper |
 | `sdcard` | FAT-over-SPI microSD mount (`/sdcard`) |
+| `audio` | INMP441 I2S mic capture + I2S speaker/amp output |
 
-Audio (INMP441 mic / speaker) is intentionally not in the base; add it as a
-component per project.
+> **Not yet hardware-verified:** `crowpanel` (display, touch, backlight) and
+> `net` are confirmed working on a physical board. `sdcard` and `audio` are
+> **not** fully tested on hardware yet: they compile and initialize, but a real
+> SD mount and real speaker/mic audio have not been confirmed (verifying them
+> needs the tiny S0/S1 DIP switches set correctly, see below). Pin maps come
+> from Elecrow's docs/code but treat these two as provisional until verified.
 
-The microSD slot shares GPIO 4/5/6 with the I2S speaker via the on-board S0/S1
-DIP switches. The card only works with the switches in the TF Card position
-(V1.3+: S1=1, S0=1; V1.0/1.2: S1=1, S0=0); in the default MIC & SPK position
-`sdcard_mount()` returns an error.
+The microSD slot and the I2S speaker share GPIO 4/5/6 via the on-board S0/S1
+DIP switches, so they cannot be used at the same time:
+
+- **TF Card position** (V1.3+: S1=1, S0=1; V1.0/1.2: S1=1, S0=0): `sdcard_mount()`
+  works; the speaker is disconnected.
+- **MIC & SPK position** (S1=0, S0=0): the speaker works; SD is disconnected.
+
+In the wrong position the corresponding init returns an error. The INMP441
+microphone is on independent pins (BCLK=19, WS=2, DATA=20) and works in either
+position.
 
 ## Using the board API
 
@@ -113,6 +124,19 @@ if (sdcard_mount() == ESP_OK) {                  // mounts FAT at /sdcard
 }
 ```
 
+Audio (mic always works; speaker needs the MIC & SPK switch position):
+
+```c
+#include "audio.h"
+
+audio_mic_init(16000);                           // INMP441 capture
+int16_t buf[256]; size_t got;
+audio_mic_read(buf, sizeof(buf), &got);
+
+audio_speaker_init(16000);                        // I2S out + amp on
+audio_speaker_play_tone(440, 500);                // 440 Hz for 500 ms
+```
+
 For custom rendering, `crowpanel_panel_handle()` and `crowpanel_touch_handle()`
 expose the underlying esp_lcd handles.
 
@@ -120,10 +144,11 @@ expose the underlying esp_lcd handles.
 
 `main/main.c` builds a small LVGL UI: a title label, a "Touches: N" counter, a
 "Tap me" button that increments the counter, a "Brightness" slider that dims
-the backlight live, and an "SD: ..." status line from mounting the microSD and
-writing a test file (shows an error if no card or the S0/S1 switches are not in
-the TF Card position). Flashing a fresh clone proves display, touch input,
-backlight control, and SD all work before you write a line of your own code.
+the backlight live, an "SD: ..." status line from mounting the microSD and
+writing a test file, and a live "Mic level" bar from the INMP441. (The speaker
+is not driven by the demo because it shares pins with SD; see the note above.)
+Flashing a fresh clone exercises display, touch, backlight, SD, and mic. Note
+the SD and mic/audio paths are not yet hardware-verified.
 
 ## Contributing
 
@@ -171,8 +196,12 @@ code. If a change genuinely needs no doc update, commit with
     │   ├── CMakeLists.txt
     │   ├── include/net.h
     │   └── net.c
-    └── sdcard/                 # FAT-over-SPI microSD mount
+    ├── sdcard/                 # FAT-over-SPI microSD mount
+    │   ├── CMakeLists.txt
+    │   ├── include/sdcard.h
+    │   └── sdcard.c
+    └── audio/                  # INMP441 mic + I2S speaker/amp
         ├── CMakeLists.txt
-        ├── include/sdcard.h
-        └── sdcard.c
+        ├── include/audio.h
+        └── audio.c
 ```

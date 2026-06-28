@@ -7,11 +7,17 @@
 //   - crowpanel_set_brightness(): a slider that dims the backlight live
 //   - sdcard_mount(): mounts the microSD and writes a test file, showing the
 //     result on screen (skipped gracefully if no card is inserted)
+//   - audio_mic_init(): captures from the INMP441 mic and shows a live level
+//     bar (independent pins, always safe to run)
+//
+// The speaker (audio_speaker_*) shares GPIO 4/5/6 with the SD card via the
+// S0/S1 switches, so this demo does not drive it alongside SD; see audio.h.
 //
 // Wi-Fi/NVS helpers (net.h) are part of the base too; see net_wifi_connect().
 // To start a real project, replace build_ui() and app_main below.
 
 #include <stdio.h>
+#include <stdlib.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_log.h"
@@ -19,12 +25,14 @@
 #include "crowpanel.h"
 #include "crowpanel_lvgl.h"
 #include "sdcard.h"
+#include "audio.h"
 // #include "net.h"   // net_wifi_connect("ssid", "pass", 15000);
 
 static const char *TAG = "demo";
 
 static lv_obj_t *s_counter_label;
 static lv_obj_t *s_sd_label;
+static lv_obj_t *s_mic_bar;
 static int s_count = 0;
 
 static void btn_event_cb(lv_event_t *e)
@@ -62,6 +70,16 @@ static void build_ui(void)
     lv_label_set_text(s_sd_label, "SD: checking...");
     lv_obj_set_style_text_color(s_sd_label, lv_color_white(), 0);
     lv_obj_align(s_sd_label, LV_ALIGN_CENTER, 0, -40);
+
+    lv_obj_t *mic_label = lv_label_create(scr);
+    lv_label_set_text(mic_label, "Mic level");
+    lv_obj_set_style_text_color(mic_label, lv_color_white(), 0);
+    lv_obj_align(mic_label, LV_ALIGN_CENTER, 0, 90);
+
+    s_mic_bar = lv_bar_create(scr);
+    lv_obj_set_size(s_mic_bar, 400, 20);
+    lv_bar_set_range(s_mic_bar, 0, 100);
+    lv_obj_align(s_mic_bar, LV_ALIGN_CENTER, 0, 115);
 
     lv_obj_t *btn = lv_button_create(scr);
     lv_obj_set_size(btn, 220, 80);
@@ -107,6 +125,37 @@ static void sd_selftest(void)
     }
 }
 
+// Continuously read the mic and drive the on-screen level bar.
+static void mic_task(void *arg)
+{
+    (void)arg;
+    if (audio_mic_init(16000) != ESP_OK) {
+        ESP_LOGW(TAG, "mic init failed; level bar stays at 0");
+        vTaskDelete(NULL);
+        return;
+    }
+    static int16_t buf[256];
+    while (1) {
+        size_t got = 0;
+        if (audio_mic_read(buf, sizeof(buf), &got) == ESP_OK && got > 0) {
+            size_t n = got / sizeof(int16_t);
+            int32_t peak = 0;
+            for (size_t i = 0; i < n; i++) {
+                int32_t a = abs(buf[i]);
+                if (a > peak) {
+                    peak = a;
+                }
+            }
+            int level = (int)((peak * 100) / 32768);
+            if (crowpanel_lvgl_lock(20)) {
+                lv_bar_set_value(s_mic_bar, level, LV_ANIM_OFF);
+                crowpanel_lvgl_unlock();
+            }
+        }
+        vTaskDelay(pdMS_TO_TICKS(50));
+    }
+}
+
 void app_main(void)
 {
     ESP_LOGI(TAG, "CrowPanel Advance 7\" self-test (LVGL)");
@@ -125,6 +174,9 @@ void app_main(void)
     }
 
     sd_selftest();
+
+    // Mic capture runs in its own task, driving the level bar.
+    xTaskCreate(mic_task, "mic", 4096, NULL, 4, NULL);
 
     // Nothing else to do here: esp_lvgl_port drives rendering and input.
     // Your application logic can run in this task or its own.
