@@ -57,11 +57,12 @@ cable. Confirm the cable carries data (a phone should mount on it).
 | `audio` | INMP441 I2S mic capture + I2S speaker/amp output |
 
 > **Not yet hardware-verified:** `crowpanel` (display, touch, backlight) and
-> `net` are confirmed working on a physical board. `sdcard` and `audio` are
-> **not** fully tested on hardware yet: they compile and initialize, but a real
-> SD mount and real speaker/mic audio have not been confirmed (verifying them
-> needs the tiny S0/S1 DIP switches set correctly, see below). Pin maps come
-> from Elecrow's docs/code but treat these two as provisional until verified.
+> `net` are confirmed working on a physical board, including Wi-Fi connect, IP
+> readout, auto-reconnect, and SNTP time sync. `sdcard` and `audio` are **not**
+> fully tested on hardware yet: they compile and initialize, but a real SD mount
+> and real speaker/mic audio have not been confirmed (verifying them needs the
+> tiny S0/S1 DIP switches set correctly, see below). Pin maps come from
+> Elecrow's docs/code but treat these two as provisional until verified.
 
 The microSD slot and the I2S speaker share GPIO 4/5/6 via the on-board S0/S1
 DIP switches, so they cannot be used at the same time:
@@ -160,8 +161,8 @@ leave `WIFI_SSID` empty (the default) to skip it. Do not commit real
 credentials, blank them before committing.
 
 Flashing a fresh clone exercises display, touch, backlight, Wi-Fi, SD, and mic.
-Wi-Fi (the `net` component) is hardware-verified; the SD and mic/audio paths are
-not yet hardware-verified.
+Wi-Fi (the `net` component: connect, IP, auto-reconnect, SNTP) is
+hardware-verified; the SD and mic/audio paths are not yet hardware-verified.
 
 ## Partitions
 
