@@ -27,3 +27,12 @@ repos:
     hooks:
       - id: markdownlint
         exclude: '^(managed_components|build)/'
+
+  - repo: local
+    hooks:
+      - id: readme-sync
+        name: README in sync with code
+        entry: scripts/check-readme-sync.sh
+        language: script
+        pass_filenames: false
+        always_run: true

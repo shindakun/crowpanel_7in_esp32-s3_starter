@@ -140,6 +140,11 @@ pre-commit run --all-files  # run on the whole tree
 
 C is formatted with `.clang-format`; Markdown follows `.markdownlint.json`.
 
+A local `readme-sync` hook blocks a commit that changes `components/` or
+`main/` without also updating `README.md`, so the docs do not drift behind the
+code. If a change genuinely needs no doc update, commit with
+`SKIP_README_SYNC=1 git commit ...` or `git commit --no-verify`.
+
 ## Project layout
 
 ```text
