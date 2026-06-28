@@ -1,0 +1,3 @@
+# Third-party and generated content; not ours to lint.
+managed_components/
+build/
