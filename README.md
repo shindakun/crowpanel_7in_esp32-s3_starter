@@ -100,11 +100,10 @@ expose the underlying esp_lcd handles.
 
 ## What the default demo does
 
-`main/main.c` is a self-test: it cycles the screen through solid colors, ramps
-the backlight brightness up and down, logs GT911 touch coordinates to the
-serial console, and dims the backlight while the screen is touched. Flashing a
-fresh clone proves display, touch, and backlight all work before you write a
-line of your own code.
+`main/main.c` builds a small LVGL UI: a title label, a "Touches: N" counter, a
+"Tap me" button that increments the counter, and a "Brightness" slider that
+dims the backlight live. Flashing a fresh clone proves display, touch input,
+and backlight control all work before you write a line of your own code.
 
 ## Contributing
 
