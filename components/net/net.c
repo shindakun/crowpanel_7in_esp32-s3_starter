@@ -79,7 +79,9 @@ esp_err_t net_wifi_connect(const char *ssid, const char *password, uint32_t time
     wifi_config_t wifi_cfg = {0};
     strlcpy((char *)wifi_cfg.sta.ssid, ssid, sizeof(wifi_cfg.sta.ssid));
     strlcpy((char *)wifi_cfg.sta.password, password, sizeof(wifi_cfg.sta.password));
-    wifi_cfg.sta.threshold.authmode = WIFI_AUTH_WPA2_PSK;
+    // Accept any auth mode at or above open (open/WPA/WPA2/WPA3), so this works
+    // with open and WPA3-only networks, not just WPA2-PSK.
+    wifi_cfg.sta.threshold.authmode = WIFI_AUTH_OPEN;
 
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_cfg));
@@ -91,6 +93,10 @@ esp_err_t net_wifi_connect(const char *ssid, const char *password, uint32_t time
     if (bits & WIFI_CONNECTED_BIT) {
         return ESP_OK;
     }
+    // On failure or timeout, stop so the stack is idle and a later call to
+    // net_wifi_connect() starts cleanly (it re-arms s_retry and the event bits).
     ESP_LOGE(TAG, "failed to connect to \"%s\"", ssid);
-    return ESP_FAIL;
+    esp_wifi_disconnect();
+    esp_wifi_stop();
+    return (bits & WIFI_FAIL_BIT) ? ESP_FAIL : ESP_ERR_TIMEOUT;
 }

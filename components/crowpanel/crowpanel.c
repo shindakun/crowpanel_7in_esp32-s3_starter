@@ -287,16 +287,35 @@ static esp_err_t init_i2c_and_touch(void)
     return ESP_OK;
 }
 
+// Release anything crowpanel_init allocated. Safe to call on partial init.
+static void crowpanel_teardown(void)
+{
+    if (s_touch) {
+        esp_lcd_touch_del(s_touch);
+        s_touch = NULL;
+    }
+    if (s_i2c_bus) {
+        i2c_del_master_bus(s_i2c_bus);
+        s_i2c_bus = NULL;
+    }
+    if (s_panel) {
+        esp_lcd_panel_del(s_panel);
+        s_panel = NULL;
+    }
+}
+
 esp_err_t crowpanel_init(void)
 {
     esp_err_t err = init_display();
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "display init failed: %s", esp_err_to_name(err));
+        crowpanel_teardown();
         return err;
     }
     err = init_i2c_and_touch();
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "i2c/touch init failed: %s", esp_err_to_name(err));
+        crowpanel_teardown();
         return err;
     }
     return ESP_OK;

@@ -157,6 +157,14 @@ Flashing a fresh clone exercises display, touch, backlight, Wi-Fi, SD, and mic.
 Wi-Fi (the `net` component) is hardware-verified; the SD and mic/audio paths are
 not yet hardware-verified.
 
+## Partitions
+
+`partitions.csv` (16MB flash) is OTA-ready: two 4MB app slots (`ota_0`,
+`ota_1`), an `otadata` partition, `nvs`, and a 6MB `storage` (SPIFFS)
+partition. The demo runs from `ota_0`; **`ota_1` is reserved for future OTA
+updates** and is unused until you add OTA code. If you will never OTA, you can
+replace the two `ota_*` app entries with a single `factory` app to reclaim 4MB.
+
 ## Contributing
 
 CI (`.github/workflows/ci.yml`) builds the firmware with ESP-IDF and runs
@@ -182,12 +190,16 @@ code. If a change genuinely needs no doc update, commit with
 ```text
 .
 ├── CMakeLists.txt
+├── LICENSE                     # Apache-2.0
+├── NOTICE
 ├── partitions.csv              # OTA (2x4MB app) + 6MB spiffs + nvs
 ├── sdkconfig.defaults          # N16R8: octal PSRAM, 16MB flash, 240MHz, LVGL fonts
 ├── .clang-format               # C style (enforced by CI + pre-commit)
 ├── .markdownlint.json          # doc lint rules
+├── .markdownlintignore
 ├── .pre-commit-config.yaml     # local hooks: clang-format, markdownlint, whitespace
 ├── .github/workflows/ci.yml    # build firmware + lint on push/PR
+├── scripts/check-readme-sync.sh
 ├── main/
 │   ├── CMakeLists.txt
 │   └── main.c                  # demo / your app
@@ -212,3 +224,7 @@ code. If a change genuinely needs no doc update, commit with
         ├── include/audio.h
         └── audio.c
 ```
+
+## License
+
+Apache-2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
