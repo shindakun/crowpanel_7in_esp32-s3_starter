@@ -9,11 +9,12 @@
 //     result on screen (skipped gracefully if no card is inserted)
 //   - audio_mic_init(): captures from the INMP441 mic and shows a live level
 //     bar (independent pins, always safe to run)
+//   - net_wifi_connect(): connects to the Wi-Fi network set below and reports
+//     the result on screen (set WIFI_SSID / WIFI_PASS before flashing)
 //
 // The speaker (audio_speaker_*) shares GPIO 4/5/6 with the SD card via the
 // S0/S1 switches, so this demo does not drive it alongside SD; see audio.h.
 //
-// Wi-Fi/NVS helpers (net.h) are part of the base too; see net_wifi_connect().
 // To start a real project, replace build_ui() and app_main below.
 
 #include <stdio.h>
@@ -26,12 +27,18 @@
 #include "crowpanel_lvgl.h"
 #include "sdcard.h"
 #include "audio.h"
-// #include "net.h"   // net_wifi_connect("ssid", "pass", 15000);
+#include "net.h"
+
+// Wi-Fi credentials for the demo's connection test. Set these before flashing;
+// leave SSID empty to skip the Wi-Fi test entirely.
+#define WIFI_SSID ""
+#define WIFI_PASS ""
 
 static const char *TAG = "demo";
 
 static lv_obj_t *s_counter_label;
 static lv_obj_t *s_sd_label;
+static lv_obj_t *s_wifi_label;
 static lv_obj_t *s_mic_bar;
 static int s_count = 0;
 
@@ -64,12 +71,17 @@ static void build_ui(void)
     s_counter_label = lv_label_create(scr);
     lv_label_set_text(s_counter_label, "Touches: 0");
     lv_obj_set_style_text_color(s_counter_label, lv_color_white(), 0);
-    lv_obj_align(s_counter_label, LV_ALIGN_CENTER, 0, -80);
+    lv_obj_align(s_counter_label, LV_ALIGN_CENTER, 0, -110);
 
     s_sd_label = lv_label_create(scr);
     lv_label_set_text(s_sd_label, "SD: checking...");
     lv_obj_set_style_text_color(s_sd_label, lv_color_white(), 0);
-    lv_obj_align(s_sd_label, LV_ALIGN_CENTER, 0, -40);
+    lv_obj_align(s_sd_label, LV_ALIGN_CENTER, 0, -78);
+
+    s_wifi_label = lv_label_create(scr);
+    lv_label_set_text(s_wifi_label, "Wi-Fi: ...");
+    lv_obj_set_style_text_color(s_wifi_label, lv_color_white(), 0);
+    lv_obj_align(s_wifi_label, LV_ALIGN_CENTER, 0, -46);
 
     lv_obj_t *mic_label = lv_label_create(scr);
     lv_label_set_text(mic_label, "Mic level");
@@ -125,6 +137,40 @@ static void sd_selftest(void)
     }
 }
 
+static void set_wifi_label(const char *text)
+{
+    if (crowpanel_lvgl_lock(0)) {
+        lv_label_set_text(s_wifi_label, text);
+        crowpanel_lvgl_unlock();
+    }
+}
+
+// Connect to the configured Wi-Fi network and report the result on screen.
+// Blocks while connecting, so it runs in its own task.
+static void wifi_task(void *arg)
+{
+    (void)arg;
+    if (WIFI_SSID[0] == '\0') {
+        set_wifi_label("Wi-Fi: not configured (set WIFI_SSID)");
+        ESP_LOGW(TAG, "WIFI_SSID empty; skipping Wi-Fi test");
+        vTaskDelete(NULL);
+        return;
+    }
+
+    set_wifi_label("Wi-Fi: connecting...");
+    ESP_LOGI(TAG, "connecting to Wi-Fi \"%s\"", WIFI_SSID);
+
+    char status[96];
+    if (net_wifi_connect(WIFI_SSID, WIFI_PASS, 20000) == ESP_OK) {
+        snprintf(status, sizeof(status), "Wi-Fi: connected to %s", WIFI_SSID);
+    } else {
+        snprintf(status, sizeof(status), "Wi-Fi: failed to connect to %s", WIFI_SSID);
+    }
+    ESP_LOGI(TAG, "%s", status);
+    set_wifi_label(status);
+    vTaskDelete(NULL);
+}
+
 // Continuously read the mic and drive the on-screen level bar.
 static void mic_task(void *arg)
 {
@@ -175,8 +221,9 @@ void app_main(void)
 
     sd_selftest();
 
-    // Mic capture runs in its own task, driving the level bar.
+    // Mic capture and Wi-Fi connect each run in their own task.
     xTaskCreate(mic_task, "mic", 4096, NULL, 4, NULL);
+    xTaskCreate(wifi_task, "wifi", 4096, NULL, 4, NULL);
 
     // Nothing else to do here: esp_lvgl_port drives rendering and input.
     // Your application logic can run in this task or its own.

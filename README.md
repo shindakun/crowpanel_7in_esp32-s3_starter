@@ -145,10 +145,17 @@ expose the underlying esp_lcd handles.
 `main/main.c` builds a small LVGL UI: a title label, a "Touches: N" counter, a
 "Tap me" button that increments the counter, a "Brightness" slider that dims
 the backlight live, an "SD: ..." status line from mounting the microSD and
-writing a test file, and a live "Mic level" bar from the INMP441. (The speaker
-is not driven by the demo because it shares pins with SD; see the note above.)
-Flashing a fresh clone exercises display, touch, backlight, SD, and mic. Note
-the SD and mic/audio paths are not yet hardware-verified.
+writing a test file, a "Wi-Fi: ..." status line from connecting to a network,
+and a live "Mic level" bar from the INMP441. (The speaker is not driven by the
+demo because it shares pins with SD; see the note above.)
+
+The Wi-Fi test reads `WIFI_SSID` / `WIFI_PASS` set near the top of `main.c`;
+leave `WIFI_SSID` empty (the default) to skip it. Do not commit real
+credentials, blank them before committing.
+
+Flashing a fresh clone exercises display, touch, backlight, Wi-Fi, SD, and mic.
+Wi-Fi (the `net` component) is hardware-verified; the SD and mic/audio paths are
+not yet hardware-verified.
 
 ## Contributing
 
