@@ -5,21 +5,26 @@
 //   - crowpanel_lvgl_init(): LVGL 9 via esp_lvgl_port
 //   - an LVGL UI: a counter label and a button that increments on touch
 //   - crowpanel_set_brightness(): a slider that dims the backlight live
+//   - sdcard_mount(): mounts the microSD and writes a test file, showing the
+//     result on screen (skipped gracefully if no card is inserted)
 //
 // Wi-Fi/NVS helpers (net.h) are part of the base too; see net_wifi_connect().
 // To start a real project, replace build_ui() and app_main below.
 
+#include <stdio.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_log.h"
 
 #include "crowpanel.h"
 #include "crowpanel_lvgl.h"
+#include "sdcard.h"
 // #include "net.h"   // net_wifi_connect("ssid", "pass", 15000);
 
 static const char *TAG = "demo";
 
 static lv_obj_t *s_counter_label;
+static lv_obj_t *s_sd_label;
 static int s_count = 0;
 
 static void btn_event_cb(lv_event_t *e)
@@ -51,7 +56,12 @@ static void build_ui(void)
     s_counter_label = lv_label_create(scr);
     lv_label_set_text(s_counter_label, "Touches: 0");
     lv_obj_set_style_text_color(s_counter_label, lv_color_white(), 0);
-    lv_obj_align(s_counter_label, LV_ALIGN_CENTER, 0, -40);
+    lv_obj_align(s_counter_label, LV_ALIGN_CENTER, 0, -80);
+
+    s_sd_label = lv_label_create(scr);
+    lv_label_set_text(s_sd_label, "SD: checking...");
+    lv_obj_set_style_text_color(s_sd_label, lv_color_white(), 0);
+    lv_obj_align(s_sd_label, LV_ALIGN_CENTER, 0, -40);
 
     lv_obj_t *btn = lv_button_create(scr);
     lv_obj_set_size(btn, 220, 80);
@@ -74,6 +84,29 @@ static void build_ui(void)
     lv_obj_add_event_cb(slider, slider_event_cb, LV_EVENT_VALUE_CHANGED, NULL);
 }
 
+// Mount the SD card, write+read back a test file, and report on the UI.
+static void sd_selftest(void)
+{
+    char status[64];
+    if (sdcard_mount() != ESP_OK) {
+        snprintf(status, sizeof(status), "SD: no card / mount failed");
+    } else {
+        FILE *f = fopen(SDCARD_MOUNT_POINT "/crowpanel_test.txt", "w");
+        if (f) {
+            fprintf(f, "hello from crowpanel\n");
+            fclose(f);
+        }
+        uint64_t total = 0, used = 0;
+        sdcard_usage(&total, &used);
+        snprintf(status, sizeof(status), "SD: OK  %lluMB used / %lluMB", used / (1024 * 1024), total / (1024 * 1024));
+        ESP_LOGI(TAG, "%s", status);
+    }
+    if (crowpanel_lvgl_lock(0)) {
+        lv_label_set_text(s_sd_label, status);
+        crowpanel_lvgl_unlock();
+    }
+}
+
 void app_main(void)
 {
     ESP_LOGI(TAG, "CrowPanel Advance 7\" self-test (LVGL)");
@@ -90,6 +123,8 @@ void app_main(void)
         build_ui();
         crowpanel_lvgl_unlock();
     }
+
+    sd_selftest();
 
     // Nothing else to do here: esp_lvgl_port drives rendering and input.
     // Your application logic can run in this task or its own.

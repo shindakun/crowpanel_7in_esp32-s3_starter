@@ -53,9 +53,15 @@ cable. Confirm the cable carries data (a phone should mount on it).
 | `crowpanel` | RGB panel, GT911 touch, backlight/brightness (STC8H1K28) |
 | `crowpanel_lvgl` | LVGL 9 bound to the panel + touch via esp_lvgl_port |
 | `net` | NVS init + Wi-Fi station connect helper |
+| `sdcard` | FAT-over-SPI microSD mount (`/sdcard`) |
 
-Audio (INMP441 mic / speaker) and SD card are intentionally not in the base;
-add them as components per project.
+Audio (INMP441 mic / speaker) is intentionally not in the base; add it as a
+component per project.
+
+The microSD slot shares GPIO 4/5/6 with the I2S speaker via the on-board S0/S1
+DIP switches. The card only works with the switches in the TF Card position
+(V1.3+: S1=1, S0=1; V1.0/1.2: S1=1, S0=0); in the default MIC & SPK position
+`sdcard_mount()` returns an error.
 
 ## Using the board API
 
@@ -95,15 +101,29 @@ Wi-Fi:
 net_wifi_connect("my-ssid", "my-pass", 15000);  // blocks until IP or timeout
 ```
 
+SD card (requires the S0/S1 switches in the TF Card position, see above):
+
+```c
+#include "sdcard.h"
+
+if (sdcard_mount() == ESP_OK) {                  // mounts FAT at /sdcard
+    FILE *f = fopen("/sdcard/log.txt", "w");
+    fprintf(f, "hi");
+    fclose(f);
+}
+```
+
 For custom rendering, `crowpanel_panel_handle()` and `crowpanel_touch_handle()`
 expose the underlying esp_lcd handles.
 
 ## What the default demo does
 
 `main/main.c` builds a small LVGL UI: a title label, a "Touches: N" counter, a
-"Tap me" button that increments the counter, and a "Brightness" slider that
-dims the backlight live. Flashing a fresh clone proves display, touch input,
-and backlight control all work before you write a line of your own code.
+"Tap me" button that increments the counter, a "Brightness" slider that dims
+the backlight live, and an "SD: ..." status line from mounting the microSD and
+writing a test file (shows an error if no card or the S0/S1 switches are not in
+the TF Card position). Flashing a fresh clone proves display, touch input,
+backlight control, and SD all work before you write a line of your own code.
 
 ## Contributing
 
@@ -142,8 +162,12 @@ C is formatted with `.clang-format`; Markdown follows `.markdownlint.json`.
     │   ├── include/crowpanel_lvgl.h
     │   ├── crowpanel.c
     │   └── crowpanel_lvgl.c    # LVGL 9 integration
-    └── net/                    # NVS + Wi-Fi station connect
+    ├── net/                    # NVS + Wi-Fi station connect
+    │   ├── CMakeLists.txt
+    │   ├── include/net.h
+    │   └── net.c
+    └── sdcard/                 # FAT-over-SPI microSD mount
         ├── CMakeLists.txt
-        ├── include/net.h
-        └── net.c
+        ├── include/sdcard.h
+        └── sdcard.c
 ```
