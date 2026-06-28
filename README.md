@@ -29,7 +29,7 @@ your screen stays black, you likely have an older revision and need to adjust
 . ~/esp/esp-idf/export.sh        # or wherever your IDF lives (built against v5.5.2)
 idf.py set-target esp32s3        # only needed once
 idf.py build
-idf.py -p /dev/cu.wchusbserial14210 flash monitor
+idf.py -p PORT flash monitor     # PORT e.g. /dev/cu.wchusbserial* (macOS) or /dev/ttyUSB0
 ```
 
 ### macOS: CH340 driver
@@ -106,19 +106,45 @@ serial console, and dims the backlight while the screen is touched. Flashing a
 fresh clone proves display, touch, and backlight all work before you write a
 line of your own code.
 
+## Contributing
+
+CI (`.github/workflows/ci.yml`) builds the firmware with ESP-IDF and runs
+clang-format, markdownlint, and whitespace checks on every push and PR.
+
+Run the same checks locally before committing:
+
+```sh
+pip install pre-commit
+pre-commit install          # enable the git hook
+pre-commit run --all-files  # run on the whole tree
+```
+
+C is formatted with `.clang-format`; Markdown follows `.markdownlint.json`.
+
 ## Project layout
 
 ```text
 .
 ├── CMakeLists.txt
-├── sdkconfig.defaults          # N16R8: octal PSRAM, 16MB flash, 240MHz
+├── partitions.csv              # OTA (2x4MB app) + 6MB spiffs + nvs
+├── sdkconfig.defaults          # N16R8: octal PSRAM, 16MB flash, 240MHz, LVGL fonts
+├── .clang-format               # C style (enforced by CI + pre-commit)
+├── .markdownlint.json          # doc lint rules
+├── .pre-commit-config.yaml     # local hooks: clang-format, markdownlint, whitespace
+├── .github/workflows/ci.yml    # build firmware + lint on push/PR
 ├── main/
 │   ├── CMakeLists.txt
 │   └── main.c                  # demo / your app
 └── components/
-    └── crowpanel/              # reusable board support
+    ├── crowpanel/              # display, touch, backlight/brightness
+    │   ├── CMakeLists.txt
+    │   ├── idf_component.yml   # pulls esp_lcd_touch_gt911, esp_lvgl_port, lvgl
+    │   ├── include/crowpanel.h
+    │   ├── include/crowpanel_lvgl.h
+    │   ├── crowpanel.c
+    │   └── crowpanel_lvgl.c    # LVGL 9 integration
+    └── net/                    # NVS + Wi-Fi station connect
         ├── CMakeLists.txt
-        ├── idf_component.yml   # pulls esp_lcd_touch_gt911
-        ├── include/crowpanel.h
-        └── crowpanel.c
+        ├── include/net.h
+        └── net.c
 ```
