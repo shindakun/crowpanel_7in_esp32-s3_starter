@@ -10,7 +10,7 @@ jobs:
     name: Build firmware (ESP-IDF)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Build with ESP-IDF
         uses: espressif/esp-idf-ci-action@v1
         with:
@@ -22,16 +22,16 @@ jobs:
     name: Lint and format
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: clang-format
-        uses: jidicula/clang-format-action@v4.13.0
+        uses: jidicula/clang-format-action@v4.18.0
         with:
           clang-format-version: '18'
           exclude-regex: '(managed_components|build)/'
 
       - name: markdownlint
-        uses: DavidAnson/markdownlint-cli2-action@v19
+        uses: DavidAnson/markdownlint-cli2-action@v23
         with:
           globs: |
             **/*.md
