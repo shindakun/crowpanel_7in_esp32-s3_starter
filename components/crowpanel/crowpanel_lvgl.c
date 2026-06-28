@@ -41,16 +41,18 @@ lv_display_t *crowpanel_lvgl_init(void)
         .vres = CROWPANEL_LCD_V_RES,
         .monochrome = false,
         .color_format = LV_COLOR_FORMAT_RGB565,
-        .flags = {
-            .buff_spiram = true,
-            .full_refresh = true,
-        },
+        .flags =
+            {
+                .buff_spiram = true,
+                .full_refresh = true,
+            },
     };
     const lvgl_port_display_rgb_cfg_t rgb_cfg = {
-        .flags = {
-            .bb_mode = true,
-            .avoid_tearing = true,
-        },
+        .flags =
+            {
+                .bb_mode = true,
+                .avoid_tearing = true,
+            },
     };
 
     s_disp = lvgl_port_add_disp_rgb(&disp_cfg, &rgb_cfg);

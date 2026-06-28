@@ -32,8 +32,7 @@ extern "C" {
 #define CROWPANEL_LCD_V_RES 480
 
 // Pack 8-bit r,g,b into an RGB565 value.
-#define CROWPANEL_RGB565(r, g, b) \
-    ((uint16_t)((((r) & 0xF8) << 8) | (((g) & 0xFC) << 3) | ((b) >> 3)))
+#define CROWPANEL_RGB565(r, g, b) ((uint16_t)((((r) & 0xF8) << 8) | (((g) & 0xFC) << 3) | ((b) >> 3)))
 
 // A single touch point in panel pixel coordinates.
 typedef struct {

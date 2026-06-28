@@ -1,0 +1,19 @@
+# C style for this project. Matches the existing code: 4-space indent,
+# 120-column lines, K&R braces. Based on the LLVM style with tweaks.
+---
+Language: Cpp
+BasedOnStyle: LLVM
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+ColumnLimit: 120
+BreakBeforeBraces: Linux
+AllowShortFunctionsOnASingleLine: None
+AllowShortIfStatementsOnASingleLine: false
+AllowShortLoopsOnASingleLine: false
+AlignAfterOpenBracket: Align
+PointerAlignment: Right
+SpaceBeforeParens: ControlStatements
+SortIncludes: false
+KeepEmptyLinesAtTheStartOfBlocks: false
+...

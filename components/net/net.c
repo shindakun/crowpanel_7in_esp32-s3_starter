@@ -14,7 +14,7 @@
 static const char *TAG = "net";
 
 #define WIFI_CONNECTED_BIT BIT0
-#define WIFI_FAIL_BIT      BIT1
+#define WIFI_FAIL_BIT BIT1
 
 static EventGroupHandle_t s_wifi_events = NULL;
 static bool s_stack_inited = false;
@@ -54,7 +54,8 @@ static void wifi_event_handler(void *arg, esp_event_base_t base, int32_t id, voi
 esp_err_t net_wifi_connect(const char *ssid, const char *password, uint32_t timeout_ms)
 {
     esp_err_t err = net_nvs_init();
-    if (err != ESP_OK) return err;
+    if (err != ESP_OK)
+        return err;
 
     if (!s_stack_inited) {
         ESP_ERROR_CHECK(esp_netif_init());
@@ -64,10 +65,10 @@ esp_err_t net_wifi_connect(const char *ssid, const char *password, uint32_t time
         wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
         ESP_ERROR_CHECK(esp_wifi_init(&cfg));
 
-        ESP_ERROR_CHECK(esp_event_handler_instance_register(WIFI_EVENT, ESP_EVENT_ANY_ID,
-                                                            &wifi_event_handler, NULL, NULL));
-        ESP_ERROR_CHECK(esp_event_handler_instance_register(IP_EVENT, IP_EVENT_STA_GOT_IP,
-                                                            &wifi_event_handler, NULL, NULL));
+        ESP_ERROR_CHECK(
+            esp_event_handler_instance_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &wifi_event_handler, NULL, NULL));
+        ESP_ERROR_CHECK(
+            esp_event_handler_instance_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &wifi_event_handler, NULL, NULL));
         s_wifi_events = xEventGroupCreate();
         s_stack_inited = true;
     }
@@ -75,7 +76,7 @@ esp_err_t net_wifi_connect(const char *ssid, const char *password, uint32_t time
     xEventGroupClearBits(s_wifi_events, WIFI_CONNECTED_BIT | WIFI_FAIL_BIT);
     s_retry = 0;
 
-    wifi_config_t wifi_cfg = { 0 };
+    wifi_config_t wifi_cfg = {0};
     strlcpy((char *)wifi_cfg.sta.ssid, ssid, sizeof(wifi_cfg.sta.ssid));
     strlcpy((char *)wifi_cfg.sta.password, password, sizeof(wifi_cfg.sta.password));
     wifi_cfg.sta.threshold.authmode = WIFI_AUTH_WPA2_PSK;
@@ -86,9 +87,7 @@ esp_err_t net_wifi_connect(const char *ssid, const char *password, uint32_t time
 
     ESP_LOGI(TAG, "connecting to \"%s\"", ssid);
     TickType_t wait = (timeout_ms == 0) ? portMAX_DELAY : pdMS_TO_TICKS(timeout_ms);
-    EventBits_t bits = xEventGroupWaitBits(s_wifi_events,
-                                           WIFI_CONNECTED_BIT | WIFI_FAIL_BIT,
-                                           pdFALSE, pdFALSE, wait);
+    EventBits_t bits = xEventGroupWaitBits(s_wifi_events, WIFI_CONNECTED_BIT | WIFI_FAIL_BIT, pdFALSE, pdFALSE, wait);
     if (bits & WIFI_CONNECTED_BIT) {
         return ESP_OK;
     }
