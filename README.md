@@ -46,29 +46,57 @@ brew install --cask wch-ch34x-usb-serial-driver
 If the board does not enumerate at all: it is almost always a charge-only USB-C
 cable. Confirm the cable carries data (a phone should mount on it).
 
+## What the base provides
+
+| Component | Purpose |
+|---|---|
+| `crowpanel` | RGB panel, GT911 touch, backlight/brightness (STC8H1K28) |
+| `crowpanel_lvgl` | LVGL 9 bound to the panel + touch via esp_lvgl_port |
+| `net` | NVS init + Wi-Fi station connect helper |
+
+Audio (INMP441 mic / speaker) and SD card are intentionally not in the base;
+add them as components per project.
+
 ## Using the board API
+
+Raw drawing + touch + brightness:
 
 ```c
 #include "crowpanel.h"
 
-void app_main(void) {
-    crowpanel_init();                              // panel + touch + backlight on
+crowpanel_init();                              // panel + touch + backlight on
+crowpanel_fill(CROWPANEL_RGB565(0, 0, 255));   // solid blue
+crowpanel_set_brightness(50);                  // 0..100 %
 
-    crowpanel_fill(CROWPANEL_RGB565(0, 0, 255));   // solid blue
-    crowpanel_set_brightness(50);                  // 0..100 %
+crowpanel_touch_point_t p;
+if (crowpanel_get_touch(&p)) { /* p.x, p.y */ }
+```
 
-    crowpanel_touch_point_t p;
-    while (1) {
-        if (crowpanel_get_touch(&p)) {
-            printf("touch %u,%u\n", p.x, p.y);
-        }
-        vTaskDelay(pdMS_TO_TICKS(20));
-    }
+LVGL UI (most projects):
+
+```c
+#include "crowpanel.h"
+#include "crowpanel_lvgl.h"
+
+crowpanel_init();
+crowpanel_lvgl_init();
+if (crowpanel_lvgl_lock(0)) {                   // LVGL runs in its own task
+    lv_obj_t *label = lv_label_create(lv_screen_active());
+    lv_label_set_text(label, "Hello");
+    crowpanel_lvgl_unlock();
 }
 ```
 
-For LVGL or custom rendering, `crowpanel_panel_handle()` and
-`crowpanel_touch_handle()` expose the underlying esp_lcd handles.
+Wi-Fi:
+
+```c
+#include "net.h"
+
+net_wifi_connect("my-ssid", "my-pass", 15000);  // blocks until IP or timeout
+```
+
+For custom rendering, `crowpanel_panel_handle()` and `crowpanel_touch_handle()`
+expose the underlying esp_lcd handles.
 
 ## What the default demo does
 

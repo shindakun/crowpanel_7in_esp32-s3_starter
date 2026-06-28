@@ -167,6 +167,10 @@ static esp_err_t init_display(void)
         .data_width = 16,
         .bits_per_pixel = 16,
         .psram_trans_align = 64,
+        // Two framebuffers in PSRAM so esp_lvgl_port can do double-buffered,
+        // tear-free output; a small bounce buffer keeps PCLK fed from PSRAM.
+        .num_fbs = 2,
+        .bounce_buffer_size_px = CROWPANEL_LCD_H_RES * 10,
         .clk_src = LCD_CLK_SRC_DEFAULT,
         .disp_gpio_num = PIN_DISP,
         .pclk_gpio_num = PIN_PCLK,

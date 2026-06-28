@@ -1,0 +1,13 @@
+# Partition table for the CrowPanel Advance 7.0 (16MB flash).
+# Sized with room for OTA, a SPIFFS/asset partition, and NVS, so most
+# projects (Wi-Fi creds, settings, OTA updates, bundled assets) fit without
+# editing this file. Two app slots enable OTA; drop to a single factory app
+# if you never OTA and want the space back.
+#
+# Name,      Type, SubType,  Offset,   Size
+nvs,         data, nvs,      ,         24K
+otadata,     data, ota,      ,         8K
+phy_init,    data, phy,      ,         4K
+ota_0,       app,  ota_0,    ,         4M
+ota_1,       app,  ota_1,    ,         4M
+storage,     data, spiffs,   ,         6M

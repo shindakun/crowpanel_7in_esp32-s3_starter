@@ -1,78 +1,99 @@
 // CrowPanel Advance 7.0-HMI (ESP32-S3): board self-test / starter template.
 //
-// This demo exercises every part of the board so a freshly cloned project
-// proves its hardware on the first flash:
-//   - cycles the screen through solid colors (display + backlight)
-//   - logs touch coordinates from the GT911 (touch)
-//   - ramps the backlight brightness up and down (STC8H1K28 control MCU)
+// Proves the board on first flash using the full base stack:
+//   - crowpanel_init():      RGB panel + GT911 touch + backlight (STC8H1K28)
+//   - crowpanel_lvgl_init(): LVGL 9 via esp_lvgl_port
+//   - an LVGL UI: a counter label and a button that increments on touch
+//   - crowpanel_set_brightness(): a slider that dims the backlight live
 //
-// All board details live in the reusable crowpanel component. To start a real
-// project, replace the body of app_main below; crowpanel_init() and the API in
-// crowpanel.h are all you need.
+// Wi-Fi/NVS helpers (net.h) are part of the base too; see net_wifi_connect().
+// To start a real project, replace build_ui() and app_main below.
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_log.h"
+
 #include "crowpanel.h"
+#include "crowpanel_lvgl.h"
+// #include "net.h"   // net_wifi_connect("ssid", "pass", 15000);
 
 static const char *TAG = "demo";
 
+static lv_obj_t *s_counter_label;
+static int s_count = 0;
+
+static void btn_event_cb(lv_event_t *e)
+{
+    (void)e;
+    s_count++;
+    lv_label_set_text_fmt(s_counter_label, "Touches: %d", s_count);
+}
+
+static void slider_event_cb(lv_event_t *e)
+{
+    lv_obj_t *slider = lv_event_get_target(e);
+    int val = lv_slider_get_value(slider);
+    crowpanel_set_brightness((uint8_t)val);
+}
+
+// Build a small LVGL UI. Caller must hold the LVGL lock.
+static void build_ui(void)
+{
+    lv_obj_t *scr = lv_screen_active();
+    lv_obj_set_style_bg_color(scr, lv_color_hex(0x103040), 0);
+
+    lv_obj_t *title = lv_label_create(scr);
+    lv_label_set_text(title, "CrowPanel Advance 7.0");
+    lv_obj_set_style_text_color(title, lv_color_white(), 0);
+    lv_obj_set_style_text_font(title, &lv_font_montserrat_28, 0);
+    lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 30);
+
+    s_counter_label = lv_label_create(scr);
+    lv_label_set_text(s_counter_label, "Touches: 0");
+    lv_obj_set_style_text_color(s_counter_label, lv_color_white(), 0);
+    lv_obj_align(s_counter_label, LV_ALIGN_CENTER, 0, -40);
+
+    lv_obj_t *btn = lv_button_create(scr);
+    lv_obj_set_size(btn, 220, 80);
+    lv_obj_align(btn, LV_ALIGN_CENTER, 0, 30);
+    lv_obj_add_event_cb(btn, btn_event_cb, LV_EVENT_CLICKED, NULL);
+    lv_obj_t *btn_label = lv_label_create(btn);
+    lv_label_set_text(btn_label, "Tap me");
+    lv_obj_center(btn_label);
+
+    lv_obj_t *slider_label = lv_label_create(scr);
+    lv_label_set_text(slider_label, "Brightness");
+    lv_obj_set_style_text_color(slider_label, lv_color_white(), 0);
+    lv_obj_align(slider_label, LV_ALIGN_BOTTOM_MID, 0, -90);
+
+    lv_obj_t *slider = lv_slider_create(scr);
+    lv_obj_set_width(slider, 400);
+    lv_slider_set_range(slider, 5, 100);
+    lv_slider_set_value(slider, 100, LV_ANIM_OFF);
+    lv_obj_align(slider, LV_ALIGN_BOTTOM_MID, 0, -50);
+    lv_obj_add_event_cb(slider, slider_event_cb, LV_EVENT_VALUE_CHANGED, NULL);
+}
+
 void app_main(void)
 {
-    ESP_LOGI(TAG, "CrowPanel Advance 7.0 self-test");
+    ESP_LOGI(TAG, "CrowPanel Advance 7.0 self-test (LVGL)");
 
     ESP_ERROR_CHECK(crowpanel_init());
 
-    const uint16_t colors[] = {
-        CROWPANEL_RGB565(255, 0, 0),    // red
-        CROWPANEL_RGB565(0, 255, 0),    // green
-        CROWPANEL_RGB565(0, 0, 255),    // blue
-        CROWPANEL_RGB565(255, 255, 255),// white
-        CROWPANEL_RGB565(0, 0, 0),      // black
-    };
-    const char *names[] = {"RED", "GREEN", "BLUE", "WHITE", "BLACK"};
-    const int num_colors = sizeof(colors) / sizeof(colors[0]);
+    if (!crowpanel_lvgl_init()) {
+        ESP_LOGE(TAG, "LVGL init failed");
+        return;
+    }
 
-    int ci = 0;
-    int tick = 0;
-    int brightness = 100;
-    int bright_dir = -5;   // ramp brightness down then back up
-    bool was_touched = false;
+    // LVGL runs in its own task; hold the lock while building the UI.
+    if (crowpanel_lvgl_lock(0)) {
+        build_ui();
+        crowpanel_lvgl_unlock();
+    }
 
+    // Nothing else to do here: esp_lvgl_port drives rendering and input.
+    // Your application logic can run in this task or its own.
     while (1) {
-        // Cycle the background color every ~2 seconds.
-        if (tick % 40 == 0) {
-            ESP_LOGI(TAG, "Fill: %s", names[ci]);
-            crowpanel_fill(colors[ci]);
-            ci = (ci + 1) % num_colors;
-        }
-
-        // Every ~0.5s, ramp the backlight to show set_brightness working.
-        if (tick % 10 == 0) {
-            brightness += bright_dir;
-            if (brightness <= 10) { brightness = 10; bright_dir = 5; }
-            if (brightness >= 100) { brightness = 100; bright_dir = -5; }
-            crowpanel_set_brightness(brightness);
-        }
-
-        // Poll touch ~20Hz and log any points. While touched, drop to a low
-        // brightness so you can feel touch affecting the backlight too.
-        crowpanel_touch_point_t pts[5];
-        uint8_t cnt = crowpanel_get_touches(pts, 5);
-        if (cnt > 0) {
-            for (int i = 0; i < cnt; i++) {
-                ESP_LOGI(TAG, "Touch[%d] x=%u y=%u strength=%u", i, pts[i].x, pts[i].y, pts[i].strength);
-            }
-            if (!was_touched) {
-                crowpanel_set_brightness(20);
-                was_touched = true;
-            }
-        } else if (was_touched) {
-            crowpanel_set_brightness(brightness);
-            was_touched = false;
-        }
-
-        tick++;
-        vTaskDelay(pdMS_TO_TICKS(50));
+        vTaskDelay(pdMS_TO_TICKS(1000));
     }
 }

@@ -17,3 +17,14 @@ CONFIG_SPIRAM_RODATA=y
 
 # Bump CPU to 240MHz
 CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_240=y
+
+# Custom partition table (OTA + SPIFFS storage + NVS), see partitions.csv
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
+
+# LVGL: use the default tick from esp_lvgl_port's own task
+CONFIG_LV_USE_OS=0
+
+# LVGL fonts: keep the default 14 plus a larger size for headings
+CONFIG_LV_FONT_MONTSERRAT_14=y
+CONFIG_LV_FONT_MONTSERRAT_28=y
