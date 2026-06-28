@@ -8,12 +8,12 @@ Clone this directory to begin a new project. Board support lives in a reusable
 
 ## Hardware
 
-| | |
-|---|---|
+| Part | Detail |
+| --- | --- |
 | MCU | ESP32-S3-WROOM-1 N16R8 (16MB flash, 8MB octal PSRAM) |
 | Display | 7" IPS 800x480, SC7277 RGB driver, 16-bit RGB565 |
 | Touch | GT911 capacitive, I2C addr 0x5D |
-| Backlight + touch enable | STC8H1K28 control MCU, I2C addr 0x30 (board V1.3+) |
+| Backlight + touch | STC8H1K28 control MCU, I2C addr 0x30 (board V1.3+) |
 | USB-serial | CH340 |
 
 This template targets the **V1.3+** board revision, where an STC8H1K28 MCU at
@@ -49,7 +49,7 @@ cable. Confirm the cable carries data (a phone should mount on it).
 ## What the base provides
 
 | Component | Purpose |
-|---|---|
+| --- | --- |
 | `crowpanel` | RGB panel, GT911 touch, backlight/brightness (STC8H1K28) |
 | `crowpanel_lvgl` | LVGL 9 bound to the panel + touch via esp_lvgl_port |
 | `net` | NVS init + Wi-Fi station connect helper |
@@ -108,7 +108,7 @@ line of your own code.
 
 ## Project layout
 
-```
+```text
 .
 ├── CMakeLists.txt
 ├── sdkconfig.defaults          # N16R8: octal PSRAM, 16MB flash, 240MHz
