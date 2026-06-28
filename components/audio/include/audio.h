@@ -7,10 +7,9 @@
 //   The amplifier is enabled through the STC8H1K28 control MCU (I2C 0x30,
 //   command 248).
 //
-// Microphone (INMP441-style I2S input, independent pins, works alongside SPK):
-//   BCLK=IO19, WS=IO2, DATA=IO20. (WS=IO2 is documented for V1.0/1.2 and
-//   applies to V1.3+ which uses the same 3-wire I2S mic; verify if your unit
-//   differs.)
+// Microphone (PDM, independent pins, works alongside the speaker):
+//   CLK=IO19, DATA=IO20 (a PDM mic, no WS line). Captured via PDM RX with the
+//   hardware PDM-to-PCM filter, so audio_mic_read() returns 16-bit PCM.
 //
 // Usage:
 //   audio_speaker_init(16000);                 // sample rate
@@ -44,15 +43,16 @@ esp_err_t audio_speaker_write(const void *data, size_t len, size_t *bytes_writte
 // Play a simple sine tone for the given duration (blocking). Handy self-test.
 esp_err_t audio_speaker_play_tone(uint32_t freq_hz, uint32_t duration_ms);
 
-// Mute/unmute the amplifier via the STC8H1K28 without tearing down I2S.
+// Unmute re-enables the amplifier (no dedicated STC8H mute command exists; to
+// silence output, write silence or stop writing). Kept for API symmetry.
 void audio_speaker_set_muted(bool muted);
 
 // Tear down the speaker I2S and disable the amplifier.
 esp_err_t audio_speaker_deinit(void);
 
-// ---- Microphone (INMP441 I2S input) ----
+// ---- Microphone (PDM input) ----
 
-// Initialize the I2S microphone input.
+// Initialize the PDM microphone input.
 esp_err_t audio_mic_init(uint32_t sample_rate_hz);
 
 // Read signed 16-bit PCM samples from the mic. Blocks until data is available.

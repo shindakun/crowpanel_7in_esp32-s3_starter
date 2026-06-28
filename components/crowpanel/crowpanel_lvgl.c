@@ -24,15 +24,19 @@ lv_display_t *crowpanel_lvgl_init(void)
         return NULL;
     }
 
-    const lvgl_port_cfg_t port_cfg = ESP_LVGL_PORT_INIT_CONFIG();
+    lvgl_port_cfg_t port_cfg = ESP_LVGL_PORT_INIT_CONFIG();
+    port_cfg.task_affinity = 1; // pin LVGL to core 1 so its RGB flush does not
+                                // share a core with app/DMA tasks on core 0
     if (lvgl_port_init(&port_cfg) != ESP_OK) {
         ESP_LOGE(TAG, "lvgl_port_init failed");
         return NULL;
     }
 
-    // For an RGB panel the LVGL draw buffers map onto the panel's own PSRAM
-    // framebuffers. full_refresh + bb_mode bounce gives a clean, tear-light
-    // result on this 800x480 panel.
+    // Tear-free RGB config: avoid_tearing makes LVGL draw directly into the
+    // panel's PSRAM framebuffers (num_fbs=3, set in crowpanel.c) and swap at
+    // VSYNC; it requires full_refresh and a full-screen buffer_size. Leave
+    // bb_mode and buff_spiram off here: those are different buffer modes that
+    // conflict with avoid_tearing.
     lvgl_port_display_cfg_t disp_cfg = {
         .panel_handle = panel,
         .buffer_size = CROWPANEL_LCD_H_RES * CROWPANEL_LCD_V_RES,
@@ -43,14 +47,12 @@ lv_display_t *crowpanel_lvgl_init(void)
         .color_format = LV_COLOR_FORMAT_RGB565,
         .flags =
             {
-                .buff_spiram = true,
                 .full_refresh = true,
             },
     };
     const lvgl_port_display_rgb_cfg_t rgb_cfg = {
         .flags =
             {
-                .bb_mode = true,
                 .avoid_tearing = true,
             },
     };

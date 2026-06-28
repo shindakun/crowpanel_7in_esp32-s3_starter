@@ -1,5 +1,5 @@
-# CrowPanel Advance 7.0 (ESP32-S3-WROOM-1 N16R8)
-# 16MB flash, 8MB octal PSRAM. The 800x480x2 RGB framebuffer lives in PSRAM.
+# CrowPanel Advance 7" (ESP32-S3-WROOM-1 N16R8)
+# 16MB flash, 8MB octal PSRAM. The 800x480 RGB framebuffers live in PSRAM.
 
 # Flash: 16MB
 CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y
@@ -17,6 +17,10 @@ CONFIG_SPIRAM_RODATA=y
 
 # Bump CPU to 240MHz
 CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_240=y
+
+# Do NOT enable CONFIG_LCD_RGB_RESTART_IN_VSYNC: it resets the GDMA every vblank
+# and makes the panel flicker on every redraw. Elecrow's flicker-free config
+# leaves it off.
 
 # Custom partition table (OTA + SPIFFS storage + NVS), see partitions.csv
 CONFIG_PARTITION_TABLE_CUSTOM=y

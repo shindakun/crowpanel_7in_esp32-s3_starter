@@ -54,15 +54,16 @@ cable. Confirm the cable carries data (a phone should mount on it).
 | `crowpanel_lvgl` | LVGL 9 bound to the panel + touch via esp_lvgl_port |
 | `net` | NVS init, Wi-Fi STA connect/disconnect, auto-reconnect, IP/status, SNTP |
 | `sdcard` | FAT-over-SPI microSD mount (`/sdcard`) |
-| `audio` | INMP441 I2S mic capture + I2S speaker/amp output |
+| `audio` | PDM mic capture + I2S speaker/amp output |
 
-> **Not yet hardware-verified:** `crowpanel` (display, touch, backlight) and
-> `net` are confirmed working on a physical board, including Wi-Fi connect, IP
-> readout, auto-reconnect, and SNTP time sync. `sdcard` and `audio` are **not**
-> fully tested on hardware yet: they compile and initialize, but a real SD mount
-> and real speaker/mic audio have not been confirmed (verifying them needs the
-> tiny S0/S1 DIP switches set correctly, see below). Pin maps come from
-> Elecrow's docs/code but treat these two as provisional until verified.
+> **Hardware-verified on a V1.4 board:** `crowpanel` (display, touch,
+> backlight/brightness), `net` (Wi-Fi connect, IP, auto-reconnect, SNTP),
+> `sdcard` (FAT32 mount, with the S0/S1 switches in a TF Card position), and the
+> `audio` **microphone** (PDM capture drives the demo's live level bar).
+>
+> **Not verified:** the `audio` **speaker** output has not been tested on
+> hardware (it builds and the amp-enable path is in place). Pin maps come from
+> the V1.4 schematic and Elecrow's example code.
 
 The microSD slot and the I2S speaker share GPIO 4/5/6 via the on-board S0/S1
 DIP switches, so they cannot be used at the same time:
@@ -71,9 +72,9 @@ DIP switches, so they cannot be used at the same time:
   works; the speaker is disconnected.
 - **MIC & SPK position** (S1=0, S0=0): the speaker works; SD is disconnected.
 
-In the wrong position the corresponding init returns an error. The INMP441
-microphone is on independent pins (BCLK=19, WS=2, DATA=20) and works in either
-position.
+In the wrong position the corresponding init returns an error. The PDM
+microphone is on independent pins (CLK=19, DATA=20), so it works regardless of
+the switch position.
 
 ## Using the board API
 
@@ -119,7 +120,10 @@ bool up = net_wifi_is_connected();
 net_wifi_disconnect();                 // stops auto-reconnect
 ```
 
-SD card (requires the S0/S1 switches in the TF Card position, see above):
+SD card (requires the S0/S1 switches in a TF Card position, see above). Format
+the card **FAT32 with an MBR partition scheme** (on macOS Disk Utility: select
+the whole device, Erase, Format "MS-DOS (FAT)", Scheme "Master Boot Record").
+exFAT is not enabled in this build:
 
 ```c
 #include "sdcard.h"
@@ -131,17 +135,18 @@ if (sdcard_mount() == ESP_OK) {                  // mounts FAT at /sdcard
 }
 ```
 
-Audio (mic always works; speaker needs the MIC & SPK switch position):
+Audio (the speaker needs the MIC & SPK switch position; speaker output is not
+yet hardware-verified):
 
 ```c
 #include "audio.h"
 
-audio_mic_init(16000);                           // INMP441 capture
+audio_mic_init(16000);                           // PDM mic capture
 int16_t buf[256]; size_t got;
-audio_mic_read(buf, sizeof(buf), &got);
+audio_mic_read(buf, sizeof(buf), &got);          // 16-bit PCM
 
-audio_speaker_init(16000);                        // I2S out + amp on
-audio_speaker_play_tone(440, 500);                // 440 Hz for 500 ms
+audio_speaker_init(16000);                       // I2S out + amp on
+audio_speaker_play_tone(440, 500);               // 440 Hz for 500 ms
 ```
 
 For custom rendering, `crowpanel_panel_handle()` and `crowpanel_touch_handle()`
@@ -153,16 +158,16 @@ expose the underlying esp_lcd handles.
 "Tap me" button that increments the counter, a "Brightness" slider that dims
 the backlight live, an "SD: ..." status line from mounting the microSD and
 writing a test file, a "Wi-Fi: ..." status line from connecting to a network,
-and a live "Mic level" bar from the INMP441. (The speaker is not driven by the
-demo because it shares pins with SD; see the note above.)
+and a live "Mic level" bar driven by the PDM microphone. (The speaker is not
+driven by the demo because it shares pins with SD.)
 
 The Wi-Fi test reads `WIFI_SSID` / `WIFI_PASS` set near the top of `main.c`;
 leave `WIFI_SSID` empty (the default) to skip it. Do not commit real
 credentials, blank them before committing.
 
-Flashing a fresh clone exercises display, touch, backlight, Wi-Fi, SD, and mic.
-Wi-Fi (the `net` component: connect, IP, auto-reconnect, SNTP) is
-hardware-verified; the SD and mic/audio paths are not yet hardware-verified.
+Flashing a fresh clone exercises display, touch, backlight, Wi-Fi, SD, and the
+microphone. The only part not yet hardware-verified is speaker output (see the
+note above).
 
 ## Partitions
 
@@ -226,7 +231,7 @@ code. If a change genuinely needs no doc update, commit with
     │   ├── CMakeLists.txt
     │   ├── include/sdcard.h
     │   └── sdcard.c
-    └── audio/                  # INMP441 mic + I2S speaker/amp
+    └── audio/                  # PDM mic + I2S speaker/amp
         ├── CMakeLists.txt
         ├── include/audio.h
         └── audio.c

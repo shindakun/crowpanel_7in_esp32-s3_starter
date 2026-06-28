@@ -1,8 +1,9 @@
 // Audio implementation for the CrowPanel Advance 7". See audio.h.
 //
-// Speaker output and mic input use the ESP-IDF v5 I2S standard-mode driver.
-// The speaker amplifier is enabled via the STC8H1K28 control MCU on the shared
-// I2C bus (0x30, command 248), the same MCU that drives backlight/touch.
+// Speaker: ESP-IDF I2S standard mode (TX) into the on-board amplifier, which is
+// enabled via the STC8H1K28 control MCU (I2C 0x30, command 248). Mic: PDM RX
+// with the hardware PDM-to-PCM filter (I2S0). The STC8H1K28 is the same MCU
+// that drives the backlight and touch (see the crowpanel component).
 
 #include "audio.h"
 
@@ -13,6 +14,7 @@
 #include "freertos/task.h"
 #include "esp_log.h"
 #include "driver/i2s_std.h"
+#include "driver/i2s_pdm.h"
 #include "driver/i2c_master.h"
 
 static const char *TAG = "audio";
@@ -22,9 +24,10 @@ static const char *TAG = "audio";
 #define SPK_LRCK 6
 #define SPK_DOUT 4
 
-// ---- Microphone pins (INMP441-style I2S, independent) ----
-#define MIC_BCLK 19
-#define MIC_WS 2
+// ---- Microphone (PDM, independent pins) ----
+// Confirmed from the V1.4 schematic: a PDM mic (LMD3526B261-OFA01) with only
+// IO19_MIC_CLK and IO20_MIC_SD routed (no WS pin). PDM2PCM runs on I2S0.
+#define MIC_CLK 19
 #define MIC_DIN 20
 
 // ---- STC8H1K28 control MCU on the shared I2C bus ----
@@ -76,7 +79,8 @@ esp_err_t audio_speaker_init(uint32_t sample_rate_hz)
     if (s_tx) {
         return ESP_OK;
     }
-    i2s_chan_config_t chan_cfg = I2S_CHANNEL_DEFAULT_CONFIG(I2S_NUM_0, I2S_ROLE_MASTER);
+    // Speaker on I2S1 (std TX works on either); the PDM mic must own I2S0.
+    i2s_chan_config_t chan_cfg = I2S_CHANNEL_DEFAULT_CONFIG(I2S_NUM_1, I2S_ROLE_MASTER);
     esp_err_t err = i2s_new_channel(&chan_cfg, &s_tx, NULL);
     if (err != ESP_OK) {
         return err;
@@ -158,9 +162,8 @@ esp_err_t audio_speaker_play_tone(uint32_t freq_hz, uint32_t duration_ms)
 
 void audio_speaker_set_muted(bool muted)
 {
-    // The STC8H enables the amp with 248. We approximate mute by leaving the
-    // amp on and writing silence is the caller's job; re-enabling on unmute
-    // covers the common case. A dedicated mute command is not documented.
+    // There is no documented STC8H mute command; unmute just re-enables the
+    // amp. To silence output, write silence (or stop writing) from the caller.
     if (!muted) {
         stc8h_cmd(STC8H_SPK_ON);
     }
@@ -182,25 +185,23 @@ esp_err_t audio_mic_init(uint32_t sample_rate_hz)
     if (s_rx) {
         return ESP_OK;
     }
-    i2s_chan_config_t chan_cfg = I2S_CHANNEL_DEFAULT_CONFIG(I2S_NUM_1, I2S_ROLE_MASTER);
+    i2s_chan_config_t chan_cfg = I2S_CHANNEL_DEFAULT_CONFIG(I2S_NUM_0, I2S_ROLE_MASTER);
     esp_err_t err = i2s_new_channel(&chan_cfg, NULL, &s_rx);
     if (err != ESP_OK) {
         return err;
     }
 
-    i2s_std_config_t std_cfg = {
-        .clk_cfg = I2S_STD_CLK_DEFAULT_CONFIG(sample_rate_hz),
-        .slot_cfg = I2S_STD_PHILIPS_SLOT_DEFAULT_CONFIG(I2S_DATA_BIT_WIDTH_16BIT, I2S_SLOT_MODE_MONO),
+    // PDM RX (PDM2PCM on I2S0). Confirmed pins: CLK=IO19, DATA=IO20, no WS.
+    i2s_pdm_rx_config_t pdm_cfg = {
+        .clk_cfg = I2S_PDM_RX_CLK_DEFAULT_CONFIG(sample_rate_hz),
+        .slot_cfg = I2S_PDM_RX_SLOT_DEFAULT_CONFIG(I2S_DATA_BIT_WIDTH_16BIT, I2S_SLOT_MODE_MONO),
         .gpio_cfg =
             {
-                .mclk = I2S_GPIO_UNUSED,
-                .bclk = MIC_BCLK,
-                .ws = MIC_WS,
-                .dout = I2S_GPIO_UNUSED,
+                .clk = MIC_CLK,
                 .din = MIC_DIN,
             },
     };
-    err = i2s_channel_init_std_mode(s_rx, &std_cfg);
+    err = i2s_channel_init_pdm_rx_mode(s_rx, &pdm_cfg);
     if (err != ESP_OK) {
         i2s_del_channel(s_rx);
         s_rx = NULL;
@@ -212,8 +213,7 @@ esp_err_t audio_mic_init(uint32_t sample_rate_hz)
         s_rx = NULL;
         return err;
     }
-    ESP_LOGI(TAG, "mic ready @ %lu Hz (BCLK=%d WS=%d DIN=%d)", (unsigned long)sample_rate_hz, MIC_BCLK, MIC_WS,
-             MIC_DIN);
+    ESP_LOGI(TAG, "mic ready (PDM) @ %lu Hz (CLK=%d DIN=%d)", (unsigned long)sample_rate_hz, MIC_CLK, MIC_DIN);
     return ESP_OK;
 }
 
@@ -222,6 +222,7 @@ esp_err_t audio_mic_read(void *data, size_t len, size_t *bytes_read)
     if (!s_rx) {
         return ESP_ERR_INVALID_STATE;
     }
+    // PDM2PCM yields 16-bit PCM directly.
     return i2s_channel_read(s_rx, data, len, bytes_read, portMAX_DELAY);
 }
 

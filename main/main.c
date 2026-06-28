@@ -7,8 +7,7 @@
 //   - crowpanel_set_brightness(): a slider that dims the backlight live
 //   - sdcard_mount(): mounts the microSD and writes a test file, showing the
 //     result on screen (skipped gracefully if no card is inserted)
-//   - audio_mic_init(): captures from the INMP441 mic and shows a live level
-//     bar (independent pins, always safe to run)
+//   - audio_mic_init(): captures from the PDM mic and drives a live level bar
 //   - net_wifi_connect(): connects to the Wi-Fi network set below and reports
 //     the result on screen (set WIFI_SSID / WIFI_PASS before flashing)
 //
@@ -39,6 +38,7 @@ static const char *TAG = "demo";
 static lv_obj_t *s_counter_label;
 static lv_obj_t *s_sd_label;
 static lv_obj_t *s_wifi_label;
+static lv_obj_t *s_mic_label;
 static lv_obj_t *s_mic_bar;
 static int s_count = 0;
 
@@ -83,10 +83,10 @@ static void build_ui(void)
     lv_obj_set_style_text_color(s_wifi_label, lv_color_white(), 0);
     lv_obj_align(s_wifi_label, LV_ALIGN_CENTER, 0, -46);
 
-    lv_obj_t *mic_label = lv_label_create(scr);
-    lv_label_set_text(mic_label, "Mic level");
-    lv_obj_set_style_text_color(mic_label, lv_color_white(), 0);
-    lv_obj_align(mic_label, LV_ALIGN_CENTER, 0, 90);
+    s_mic_label = lv_label_create(scr);
+    lv_label_set_text(s_mic_label, "Mic level");
+    lv_obj_set_style_text_color(s_mic_label, lv_color_white(), 0);
+    lv_obj_align(s_mic_label, LV_ALIGN_CENTER, 0, 90);
 
     s_mic_bar = lv_bar_create(scr);
     lv_obj_set_size(s_mic_bar, 400, 20);
@@ -177,31 +177,57 @@ static void wifi_task(void *arg)
     vTaskDelete(NULL);
 }
 
-// Continuously read the mic and drive the on-screen level bar.
+// Read the PDM mic and drive a live level bar. Updates use a blocking LVGL lock
+// (a short timeout can fail mid-flush) and only when the level changes, to keep
+// redraws modest.
 static void mic_task(void *arg)
 {
     (void)arg;
     if (audio_mic_init(16000) != ESP_OK) {
-        ESP_LOGW(TAG, "mic init failed; level bar stays at 0");
+        ESP_LOGW(TAG, "mic init failed");
+        if (crowpanel_lvgl_lock(0)) {
+            lv_label_set_text(s_mic_label, "Mic: init failed");
+            crowpanel_lvgl_unlock();
+        }
         vTaskDelete(NULL);
         return;
     }
     static int16_t buf[256];
+    int last_level = -1;
     while (1) {
         size_t got = 0;
         if (audio_mic_read(buf, sizeof(buf), &got) == ESP_OK && got > 0) {
             size_t n = got / sizeof(int16_t);
+            // AC amplitude: subtract block mean, take peak deviation.
+            int32_t sum = 0;
+            for (size_t i = 0; i < n; i++) {
+                sum += buf[i];
+            }
+            int32_t mean = (n > 0) ? sum / (int32_t)n : 0;
             int32_t peak = 0;
             for (size_t i = 0; i < n; i++) {
-                int32_t a = abs(buf[i]);
+                int32_t a = abs(buf[i] - mean);
                 if (a > peak) {
                     peak = a;
                 }
             }
-            int level = (int)((peak * 100) / 32768);
-            if (crowpanel_lvgl_lock(20)) {
-                lv_bar_set_value(s_mic_bar, level, LV_ANIM_OFF);
-                crowpanel_lvgl_unlock();
+            // Measured on this mic: quiet ~8, speech peaks ~100-470. Map ~500 to
+            // a full bar; subtract a small floor so silence reads ~0.
+            int level = (int)((peak - 15) * 100 / 500);
+            if (level < 0) {
+                level = 0;
+            }
+            if (level > 100) {
+                level = 100;
+            }
+            // Update only when the level changes enough to matter, with a
+            // blocking lock (a short timeout can fail mid-flush and drop it).
+            if (abs(level - last_level) >= 3) {
+                if (crowpanel_lvgl_lock(0)) {
+                    lv_bar_set_value(s_mic_bar, level, LV_ANIM_OFF);
+                    crowpanel_lvgl_unlock();
+                    last_level = level;
+                }
             }
         }
         vTaskDelay(pdMS_TO_TICKS(50));
