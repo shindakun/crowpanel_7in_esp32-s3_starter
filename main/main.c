@@ -3,7 +3,8 @@
 // Proves the board on first flash using the full base stack:
 //   - crowpanel_init():      RGB panel + GT911 touch + backlight (STC8H1K28)
 //   - crowpanel_lvgl_init(): LVGL 9 via esp_lvgl_port
-//   - an LVGL UI: a counter label and a button that increments on touch
+//   - an LVGL UI: a counter label and a button that increments on touch and
+//     beeps the on-board buzzer (crowpanel_buzzer_beep, via the STC8H1K28)
 //   - crowpanel_set_brightness(): a slider that dims the backlight live
 //   - sdcard_mount(): mounts the microSD and writes a test file, showing the
 //     result on screen (skipped gracefully if no card is inserted)
@@ -42,11 +43,21 @@ static lv_obj_t *s_mic_label;
 static lv_obj_t *s_mic_bar;
 static int s_count = 0;
 
+// Beep briefly, then self-delete. Runs off the LVGL task so the blocking beep
+// duration does not stall rendering (the callback below just spawns it).
+static void beep_task(void *arg)
+{
+    (void)arg;
+    crowpanel_buzzer_beep(60);
+    vTaskDelete(NULL);
+}
+
 static void btn_event_cb(lv_event_t *e)
 {
     (void)e;
     s_count++;
     lv_label_set_text_fmt(s_counter_label, "Touches: %d", s_count);
+    xTaskCreate(beep_task, "beep", 2048, NULL, 5, NULL); // short beep on each tap
 }
 
 static void slider_event_cb(lv_event_t *e)

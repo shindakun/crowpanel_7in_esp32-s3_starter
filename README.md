@@ -13,12 +13,14 @@ Clone this directory to begin a new project. Board support lives in a reusable
 | MCU | ESP32-S3-WROOM-1 N16R8 (16MB flash, 8MB octal PSRAM) |
 | Display | 7" IPS 800x480, SC7277 RGB driver, 16-bit RGB565 |
 | Touch | GT911 capacitive, I2C addr 0x5D |
-| Backlight + touch | STC8H1K28 control MCU, I2C addr 0x30 (board V1.3+) |
+| Backlight + touch + buzzer | STC8H1K28 control MCU, I2C addr 0x30 (board V1.3+) |
+| Buzzer | Passive, driven by the STC8H1K28 (not an ESP32 GPIO) |
 | USB-serial | CH340 |
 
 This template targets the **V1.3+** board revision, where an STC8H1K28 MCU at
-I2C 0x30 controls the backlight (single command byte: 0 = full, 245 = off) and
-touch enable. Older V1.0/1.2 boards instead use a CH422G expander at I2C
+I2C 0x30 controls the backlight (single command byte: 0 = full, 245 = off),
+touch enable, and the passive buzzer (246 = on, 247 = off). Older V1.0/1.2
+boards instead use a CH422G expander at I2C
 0x24/0x38 (write 0x01 to 0x24, then 0x1E to 0x38 to turn the backlight on); if
 your screen stays black, you likely have an older revision and need to adjust
 `components/crowpanel/crowpanel.c` accordingly.
@@ -50,7 +52,7 @@ cable. Confirm the cable carries data (a phone should mount on it).
 
 | Component | Purpose |
 | --- | --- |
-| `crowpanel` | RGB panel, GT911 touch, backlight/brightness (STC8H1K28) |
+| `crowpanel` | RGB panel, GT911 touch, backlight/brightness, buzzer (STC8H1K28) |
 | `crowpanel_lvgl` | LVGL 9 bound to the panel + touch via esp_lvgl_port |
 | `net` | NVS init, Wi-Fi STA connect/disconnect, auto-reconnect, IP/status, SNTP |
 | `sdcard` | FAT-over-SPI microSD mount (`/sdcard`) |
@@ -61,9 +63,11 @@ cable. Confirm the cable carries data (a phone should mount on it).
 > `sdcard` (FAT32 mount, with the S0/S1 switches in a TF Card position), and the
 > `audio` **microphone** (PDM capture drives the demo's live level bar).
 >
-> **Not verified:** the `audio` **speaker** output has not been tested on
-> hardware (it builds and the amp-enable path is in place). Pin maps come from
-> the V1.4 schematic and Elecrow's example code.
+> **Not verified:** the `audio` **speaker** output and the `crowpanel`
+> **buzzer** have not been tested on hardware (both build; the speaker
+> amp-enable path is in place, and the buzzer 246/247 command bytes come from
+> the Elecrow CrowPanel GitHub). Pin maps come from the V1.4 schematic and
+> Elecrow's example code and docs.
 
 The microSD slot and the I2S speaker share GPIO 4/5/6 via the on-board S0/S1
 DIP switches, so they cannot be used at the same time:
@@ -86,10 +90,15 @@ Raw drawing + touch + brightness:
 crowpanel_init();                              // panel + touch + backlight on
 crowpanel_fill(CROWPANEL_RGB565(0, 0, 255));   // solid blue
 crowpanel_set_brightness(50);                  // 0..100 %
+crowpanel_buzzer_beep(60);                     // 60 ms beep (fixed tone)
 
 crowpanel_touch_point_t p;
 if (crowpanel_get_touch(&p)) { /* p.x, p.y */ }
 ```
+
+The buzzer is passive and driven by the STC8H1K28, not an ESP32 GPIO, so its
+tone frequency is fixed in the control MCU; `crowpanel_buzzer_set(true/false)`
+toggles it and `crowpanel_buzzer_beep(ms)` beeps for a duration (blocking).
 
 LVGL UI (most projects):
 
@@ -155,19 +164,20 @@ expose the underlying esp_lcd handles.
 ## What the default demo does
 
 `main/main.c` builds a small LVGL UI: a title label, a "Touches: N" counter, a
-"Tap me" button that increments the counter, a "Brightness" slider that dims
-the backlight live, an "SD: ..." status line from mounting the microSD and
-writing a test file, a "Wi-Fi: ..." status line from connecting to a network,
-and a live "Mic level" bar driven by the PDM microphone. (The speaker is not
-driven by the demo because it shares pins with SD.)
+"Tap me" button that increments the counter and beeps the buzzer, a
+"Brightness" slider that dims the backlight live, an "SD: ..." status line from
+mounting the microSD and writing a test file, a "Wi-Fi: ..." status line from
+connecting to a network, and a live "Mic level" bar driven by the PDM
+microphone. (The speaker is not driven by the demo because it shares pins with
+SD.)
 
 The Wi-Fi test reads `WIFI_SSID` / `WIFI_PASS` set near the top of `main.c`;
 leave `WIFI_SSID` empty (the default) to skip it. Do not commit real
 credentials, blank them before committing.
 
 Flashing a fresh clone exercises display, touch, backlight, Wi-Fi, SD, and the
-microphone. The only part not yet hardware-verified is speaker output (see the
-note above).
+microphone. The parts not yet hardware-verified are speaker output and the
+buzzer (see the note above).
 
 ## Partitions
 
@@ -212,11 +222,13 @@ code. If a change genuinely needs no doc update, commit with
 ├── .pre-commit-config.yaml     # local hooks: clang-format, markdownlint, whitespace
 ├── .github/workflows/ci.yml    # build firmware + lint on push/PR
 ├── scripts/check-readme-sync.sh
+├── docs/
+│   └── datasheets/             # board schematics (V1.3, V1.4) + index
 ├── main/
 │   ├── CMakeLists.txt
 │   └── main.c                  # demo / your app
 └── components/
-    ├── crowpanel/              # display, touch, backlight/brightness
+    ├── crowpanel/              # display, touch, backlight/brightness, buzzer
     │   ├── CMakeLists.txt
     │   ├── idf_component.yml   # pulls esp_lcd_touch_gt911, esp_lvgl_port, lvgl
     │   ├── include/crowpanel.h

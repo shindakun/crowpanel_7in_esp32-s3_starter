@@ -4,7 +4,7 @@
 //   ESP32-S3-WROOM-1 N16R8 (16MB flash / 8MB octal PSRAM)
 //   7" IPS 800x480, SC7277 RGB driver, 16-bit RGB565 parallel bus
 //   GT911 capacitive touch on I2C (SDA=15, SCL=16, addr 0x5D)
-//   STC8H1K28 control MCU on I2C (addr 0x30): backlight + touch enable
+//   STC8H1K28 control MCU on I2C (addr 0x30): backlight + touch enable + buzzer
 //
 // This is the V1.3+ board revision (STC8H1K28). Older V1.0/1.2 boards drive
 // the backlight through a CH422G expander at 0x24/0x38 instead; see the README.
@@ -55,6 +55,14 @@ void crowpanel_draw_bitmap(int x_start, int y_start, int x_end, int y_end, const
 // Set backlight brightness as a percentage, 0 (off) to 100 (full).
 // The underlying STC8H1K28 uses an inverted 0..245 scale; this maps for you.
 void crowpanel_set_brightness(uint8_t percent);
+
+// Turn the on-board passive buzzer on or off. Driven by the STC8H1K28 (I2C
+// 0x30), not an ESP32 GPIO, so the ESP32 cannot set the tone frequency; the
+// buzzer plays its own fixed tone while on. Independent of the S0/S1 switches.
+void crowpanel_buzzer_set(bool on);
+
+// Beep the buzzer on for duration_ms, then off. Blocks for the duration.
+void crowpanel_buzzer_beep(uint32_t duration_ms);
 
 // Read the first touch point. Returns true and fills *out if the screen is
 // being touched, false otherwise. Pass NULL to just poll/refresh state.

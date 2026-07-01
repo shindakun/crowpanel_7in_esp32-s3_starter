@@ -60,10 +60,13 @@ static const char *TAG = "crowpanel";
 // Single command byte written to I2C 0x30:
 //   250 = enable touch (release GT911 reset)
 //   0   = backlight full brightness; the scale is inverted, 245 = off.
+//   246 = buzzer on, 247 = buzzer off (per the Elecrow CrowPanel GitHub).
 #define STC8H_ADDR 0x30
 #define STC8H_TOUCH_EN 250
 #define STC8H_BL_MIN_VAL 245 // value that turns the backlight fully off
 #define STC8H_BL_MAX_VAL 0   // value for full brightness
+#define STC8H_BUZZER_ON 246  // passive buzzer on (fixed tone)
+#define STC8H_BUZZER_OFF 247 // passive buzzer off
 
 static esp_lcd_panel_handle_t s_panel = NULL;
 static esp_lcd_touch_handle_t s_touch = NULL;
@@ -98,6 +101,18 @@ void crowpanel_set_brightness(uint8_t percent)
     // Map 0..100 % onto the inverted 0..245 scale (0 = brightest, 245 = off).
     uint8_t value = STC8H_BL_MIN_VAL - (uint8_t)((STC8H_BL_MIN_VAL * (uint32_t)percent) / 100);
     stc8h_cmd(value);
+}
+
+void crowpanel_buzzer_set(bool on)
+{
+    stc8h_cmd(on ? STC8H_BUZZER_ON : STC8H_BUZZER_OFF);
+}
+
+void crowpanel_buzzer_beep(uint32_t duration_ms)
+{
+    stc8h_cmd(STC8H_BUZZER_ON);
+    vTaskDelay(pdMS_TO_TICKS(duration_ms));
+    stc8h_cmd(STC8H_BUZZER_OFF);
 }
 
 void crowpanel_draw_bitmap(int x_start, int y_start, int x_end, int y_end, const void *pixels)
