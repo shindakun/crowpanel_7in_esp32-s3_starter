@@ -23,6 +23,7 @@
 #include "esp_err.h"
 #include "esp_lcd_types.h"
 #include "esp_lcd_touch.h"
+#include "driver/i2c_master.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -71,9 +72,16 @@ bool crowpanel_get_touch(crowpanel_touch_point_t *out);
 // Read up to max_points touch points. Returns the number reported (0..5).
 uint8_t crowpanel_get_touches(crowpanel_touch_point_t *out, uint8_t max_points);
 
-// Low-level handles, for advanced use (e.g. wiring up LVGL directly).
+// Low-level handles, for advanced use (e.g. wiring up LVGL directly, or adding
+// more devices to the shared I2C bus).
 esp_lcd_panel_handle_t crowpanel_panel_handle(void);
 esp_lcd_touch_handle_t crowpanel_touch_handle(void);
+
+// The shared I2C master bus, valid after crowpanel_init() (NULL before). Add
+// your own I2C devices to it with i2c_master_bus_add_device(); the component
+// owns the bus, so do not delete it. GT911 (0x5D) and the STC8H1K28 (0x30) are
+// already on this bus, so use other addresses.
+i2c_master_bus_handle_t crowpanel_i2c_bus(void);
 
 #ifdef __cplusplus
 }

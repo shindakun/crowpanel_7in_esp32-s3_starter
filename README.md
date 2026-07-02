@@ -159,7 +159,10 @@ audio_speaker_play_tone(440, 500);               // 440 Hz for 500 ms
 ```
 
 For custom rendering, `crowpanel_panel_handle()` and `crowpanel_touch_handle()`
-expose the underlying esp_lcd handles.
+expose the underlying esp_lcd handles. `crowpanel_i2c_bus()` returns the shared
+I2C master bus handle so you can add your own I2C devices (expanders, sensors)
+on the same bus as the touch controller (GT911 at 0x5D and the STC8H1K28 at
+0x30 already occupy it, so use other addresses).
 
 ## What the default demo does
 

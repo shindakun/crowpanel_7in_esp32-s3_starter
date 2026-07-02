@@ -179,6 +179,10 @@ esp_lcd_touch_handle_t crowpanel_touch_handle(void)
 {
     return s_touch;
 }
+i2c_master_bus_handle_t crowpanel_i2c_bus(void)
+{
+    return s_i2c_bus;
+}
 
 static esp_err_t init_display(void)
 {
